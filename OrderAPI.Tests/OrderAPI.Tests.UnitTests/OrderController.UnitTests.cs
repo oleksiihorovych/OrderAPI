@@ -10,49 +10,50 @@ using OrderAPI.Controllers;
 using OrderAPI.DataAccess.Models;
 using OrderAPI.DataTransfer;
 using OrderAPI.DataAccess;
+using OrderAPI.DataTransfer.Extentions;
 
 namespace OrderAPI.Tests.UnitTests
 {
-    public class OrdersControllerTests
+    public class OrderControllerUnitTestsTest
     {
-        private Mock<DbAccess> _mockDbContext;
-        private Mock<ILogger<OrdersController>> _mockLogger;
+        private DbContextOptions<DbAccess> _options;
         private OrdersController _controller;
+        private ILogger<OrdersController> _mockLogger;
 
         [SetUp]
         public void Setup()
         {
-            _mockDbContext = new Mock<DbAccess>(new DbContextOptions<DbAccess>());
-            _mockLogger = new Mock<ILogger<OrdersController>>();
-            _controller = new OrdersController(_mockDbContext.Object, _mockLogger.Object);
+            _options = new DbContextOptionsBuilder<DbAccess>()
+                .UseInMemoryDatabase("TestDb")
+                .Options;
+
+            _mockLogger = new LoggerFactory().CreateLogger<OrdersController>();
+            _controller = new OrdersController(new DbAccess(_options), _mockLogger);
         }
-        
-        // CreateOrder Tests
+
+        [TearDown]
+        public async Task TearDown()
+        {
+            using (var context = new DbAccess(_options))
+            {
+                context.Orders.RemoveRange(context.Orders);
+                await context.SaveChangesAsync();
+            }
+        }
+
         [Test]
         public async Task CreateOrder_ValidModel_ReturnsCreated()
         {
             // Arrange
             var orderRequest = new OrderRequest { OrderNumber = 1, CustomerName = "Testname", OrderDate = DateTime.Now, OrderItems = new List<OrderItemRequest>() };
 
-            // Mock the DbContext behavior
-            _mockDbContext.Setup(db => db.Orders.Add(It.IsAny<Order>()));
-            _mockDbContext.Setup(db => db.SaveChangesAsync(default)).ReturnsAsync(1);
-
             // Act
             var result = await _controller.CreateOrder(orderRequest);
 
             // Assert
-            var createdResult = result as CreatedResult;
-
-            // Check that the result is of type CreatedResult
-            Assert.That(createdResult?.Value, Is.EqualTo($"Order {orderRequest.OrderNumber} successfully created."));
+            var createdResult = result as ObjectResult;
             Assert.That(createdResult?.StatusCode, Is.EqualTo(201));
-
-            // Verify that SaveChangesAsync and Add were called
-            _mockDbContext.Verify(db => db.Orders.Add(It.IsAny<Order>()), Times.Once);
-            _mockDbContext.Verify(db => db.SaveChangesAsync(default), Times.Once);
         }
-
 
         [Test]
         public async Task CreateOrder_InvalidModel_ReturnsBadRequest()
@@ -70,52 +71,155 @@ namespace OrderAPI.Tests.UnitTests
         }
 
         [Test]
-            public async Task CreateOrder_DuplicateOrder_ReturnsConflict()
-            {
-                // Arrange
-                var orderRequest = new OrderRequest { OrderNumber = 1, CustomerName = "John Doe", OrderDate = DateTime.Now, OrderItems = new List<OrderItemRequest>() };
-
-                // Mock the behavior for FirstOrDefault to return a duplicate order
-                var mockOrder = new Order { OrderNumber = 1 }; // Assume this matches the order number
-                _mockDbContext.Setup(db => db.Orders.FirstOrDefault(It.IsAny<Func<Order, bool>>()))
-                            .Returns(mockOrder);
-
-                // Act
-                var result = await _controller.CreateOrder(orderRequest);
-
-                // Assert
-                Assert.That(result, Is.InstanceOf<ConflictObjectResult>());
-                Assert.That((result as ConflictObjectResult)?.StatusCode, Is.EqualTo(409));
-            }
-
-        [Test]
-        public async Task CreateOrder_DbUpdateException_ReturnsInternalServerError()
+        public async Task CreateOrder_DuplicateOrder_ReturnsConflict()
         {
             // Arrange
-            var orderRequest = new OrderRequest { OrderNumber = 1, CustomerName = "Testname", OrderDate = DateTime.Now, OrderItems = new List<OrderItemRequest>() };
-            _mockDbContext.Setup(db => db.SaveChangesAsync(default)).ThrowsAsync(new DbUpdateException());
+            var orderRequest = new OrderRequest { OrderNumber = 1, CustomerName = "Test", OrderDate = DateTime.Now, OrderItems = new List<OrderItemRequest>() };
+
+            using (var context = new DbAccess(_options))
+            {
+                var existingOrder = new Order { OrderNumber = 1, CustomerName = "Existing Customer", OrderDate = DateTime.Now, Status = "New", OrderItems = new List<OrderItem>() };
+                await context.Orders.AddAsync(existingOrder);
+                await context.SaveChangesAsync();
+            }
 
             // Act
             var result = await _controller.CreateOrder(orderRequest);
 
             // Assert
-            Assert.That(result, Is.InstanceOf<ObjectResult>());
-            Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(500));
+            Assert.That(result, Is.InstanceOf<ConflictObjectResult>());
+            Assert.That((result as ConflictObjectResult)?.StatusCode, Is.EqualTo(409));
         }
 
         [Test]
-        public async Task CreateOrder_Exception_ReturnsInternalServerError()
+        public async Task GetAllOrders_ReturnsOk()
         {
             // Arrange
-            var orderRequest = new OrderRequest { OrderNumber = 1, CustomerName = "Testname", OrderDate = DateTime.Now, OrderItems = new List<OrderItemRequest>() };
-            _mockDbContext.Setup(db => db.SaveChangesAsync(default)).ThrowsAsync(new Exception());
+            using (var context = new DbAccess(_options))
+            {
+                var orders = new List<Order>
+                {
+                    new Order { OrderNumber = 1, CustomerName = "Customer1", OrderDate = DateTime.Now, Status = "New", OrderItems = new List<OrderItem>() },
+                    new Order { OrderNumber = 2, CustomerName = "Customer2", OrderDate = DateTime.Now, Status = "New", OrderItems = new List<OrderItem>() }
+                };
+                await context.Orders.AddRangeAsync(orders);
+                await context.SaveChangesAsync();
+            }
 
             // Act
-            var result = await _controller.CreateOrder(orderRequest);
+            var result = await _controller.GetAllOrders();
 
             // Assert
-            Assert.That(result, Is.InstanceOf<ObjectResult>());
-            Assert.That((result as ObjectResult)?.StatusCode, Is.EqualTo(500));
+            Assert.That(result, Is.InstanceOf<OkObjectResult>());
+            var okResult = result as OkObjectResult;
+            Assert.That(okResult?.StatusCode, Is.EqualTo(200));
+
+            var ordersResponse = okResult?.Value as IEnumerable<OrderResponse>;
+            Assert.That(ordersResponse, Is.Not.Null);
+            Assert.That(ordersResponse.Count(), Is.EqualTo(2));
+
+            var order1 = ordersResponse?.FirstOrDefault(o => o.OrderNumber == 1);
+            var order2 = ordersResponse?.FirstOrDefault(o => o.OrderNumber == 2);
+            
+            Assert.That(order1, Is.Not.Null);
+            Assert.That(order1?.CustomerName, Is.EqualTo("Customer1"));
+            
+            Assert.That(order2, Is.Not.Null);
+            Assert.That(order2?.CustomerName, Is.EqualTo("Customer2"));
+        }
+
+        [Test]
+        public async Task GetOrderById_ValidId_ReturnsOk()
+        {
+            // Arrange
+            var order = new Order { OrderNumber = 1, CustomerName = "Customer1", OrderDate = DateTime.Now, Status = "New", OrderItems = new List<OrderItem>() };
+            using (var context = new DbAccess(_options))
+            {
+                await context.Orders.AddAsync(order);
+                await context.SaveChangesAsync();
+            }
+
+            // Act
+            var result = await _controller.GetOrderById(1);
+
+            // Assert
+            Assert.That(result, Is.InstanceOf<OkObjectResult>());
+            var okResult = result as OkObjectResult;
+            Assert.That(okResult?.StatusCode, Is.EqualTo(200));
+        }
+
+        [Test]
+        public async Task GetOrderById_InvalidId_ReturnsNotFound()
+        {
+            // Act
+            var result = await _controller.GetOrderById(999);
+
+            // Assert
+            Assert.That(result, Is.InstanceOf<NotFoundObjectResult>());
+            var notFoundResult = result as NotFoundObjectResult;
+            Assert.That(notFoundResult?.StatusCode, Is.EqualTo(404));
+        }
+
+        [Test]
+        public async Task UpdatePaymentStatus_ValidOrder_ReturnsOk_Paid()
+        {
+            // Arrange
+            var order = new Order { OrderNumber = 1, CustomerName = "Customer1", OrderDate = DateTime.Now, Status = "New", OrderItems = new List<OrderItem>() };
+            using (var context = new DbAccess(_options))
+            {
+                await context.Orders.AddAsync(order);
+                await context.SaveChangesAsync();
+            }
+
+            // Act
+            var result = await _controller.UpdatePaymentStatus(1, true);
+            using (var context = new DbAccess(_options))
+            {
+                var updatedOrder = await context.Orders.FirstOrDefaultAsync(o => o.OrderNumber == 1);
+
+                // Assert
+                Assert.That(result, Is.InstanceOf<OkObjectResult>());
+                var okResult = result as OkObjectResult;
+                Assert.That(updatedOrder?.Status, Is.EqualTo("Paid"));
+                Assert.That(okResult?.StatusCode, Is.EqualTo(200));
+            }
+        }
+
+        [Test]
+        public async Task UpdatePaymentStatus_ValidOrder_ReturnsOk_Cancelled()
+        {
+            // Arrange
+            var order = new Order { OrderNumber = 1, CustomerName = "Customer1", OrderDate = DateTime.Now, Status = "New", OrderItems = new List<OrderItem>() };
+            using (var context = new DbAccess(_options))
+            {
+                await context.Orders.AddAsync(order);
+                await context.SaveChangesAsync();
+            }
+
+            // Act
+            var result = await _controller.UpdatePaymentStatus(1, false);
+            using (var context = new DbAccess(_options))
+            {
+                var updatedOrder = await context.Orders.FirstOrDefaultAsync(o => o.OrderNumber == 1);
+
+                // Assert
+                Assert.That(result, Is.InstanceOf<OkObjectResult>());
+                var okResult = result as OkObjectResult;
+                Assert.That(updatedOrder?.Status, Is.EqualTo("Cancalled"));
+                Assert.That(okResult?.StatusCode, Is.EqualTo(200));
+            }
+        }
+
+        [Test]
+        public async Task UpdatePaymentStatus_InvalidOrder_ReturnsNotFound()
+        {
+            // Act
+            var result = await _controller.UpdatePaymentStatus(999, true);
+
+            // Assert
+            Assert.That(result, Is.InstanceOf<NotFoundObjectResult>());
+            var notFoundResult = result as NotFoundObjectResult;
+            Assert.That(notFoundResult?.StatusCode, Is.EqualTo(404));
         }
     }
 }

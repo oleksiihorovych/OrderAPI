@@ -52,8 +52,7 @@ namespace OrderAPI.Controllers
 
                 _dbContext.Orders.Add(order);
                 await _dbContext.SaveChangesAsync();
-                return Created(string.Empty, $"Order {order.OrderNumber} successfully created.");
-
+                return Created(" ", $"Order {order.OrderNumber} successfully created.");
             }
             catch (DbUpdateException dbEx)
             {
@@ -94,7 +93,7 @@ namespace OrderAPI.Controllers
             }
         }
 
-        // Helper method: GET: Order/{id}
+        //GET: Order/{id}
         [ProducesResponseType(typeof(Order), 200)]
         [ProducesResponseType(404)]
         [ProducesResponseType(500)]
