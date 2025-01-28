@@ -4,7 +4,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderAPI", "OrderAPI\OrderAPI.csproj", "{DEE80E0A-29BE-4078-A6D1-889790604C0E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderAPI.UnitTests", "OrderAPI.Tests\OrderAPI.Tests.UnitTests\OrderAPI.UnitTests.csproj", "{A1B2C3D4-E5F6-7890-1234-56789ABCDEF0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderAPI.UnitTests", "OrderAPI.Tests\OrderAPI.UnitTests.csproj", "{A1B2C3D4-E5F6-7890-1234-56789ABCDEF0}"
 EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
