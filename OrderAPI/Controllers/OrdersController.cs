@@ -14,8 +14,15 @@ namespace OrderAPI.Controllers
     {
         private readonly DbAccess _dbContext;
         private readonly ILogger<OrdersController> _logger;
+        // private readonly IPaymentPublisher _paymentPublisher;
 
-        public OrdersController(DbAccess dbContext, ILogger<OrdersController> logger)
+        // public OrdersController(DbAccess dbContext, ILogger<OrdersController> logger, IPaymentPublisher paymentPublisher) 
+        // {
+        //     _logger = logger; 
+        //     _dbContext = dbContext;
+        //     _paymentPublisher = paymentPublisher;
+        // }
+        public OrdersController(DbAccess dbContext, ILogger<OrdersController> logger) 
         {
             _logger = logger; 
             _dbContext = dbContext;
@@ -156,10 +163,12 @@ namespace OrderAPI.Controllers
                     return NotFound($"Order with OrderNumber {orderNumber} not found.");
                 }
 
-                order.Status = isPaid ? "Paid" : "Cancalled"; //Add constants
+                order.Status = isPaid ? OrderStatus.PaidOrder : "Cancelled";  // OrderStatus.CancelledOrder ???
 
                 _dbContext.Orders.Update(order);
                 await _dbContext.SaveChangesAsync();
+
+                // _paymentPublisher.PublishPaymentStatus(orderNumber, isPaid);
 
                 return Ok($"Order {orderNumber} succesfully {order.Status.ToLower()}");
             }

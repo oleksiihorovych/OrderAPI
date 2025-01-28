@@ -1,5 +1,3 @@
-using OrderAPI.DataAccess.Models;
-
 namespace OrderAPI.DataTransfer
 {
     public class OrderResponse

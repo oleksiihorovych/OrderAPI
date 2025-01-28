@@ -12,8 +12,7 @@ namespace OrderAPI.DataTransfer.Extentions
                 OrderNumber = orderRequest.OrderNumber,
                 CustomerName = orderRequest.CustomerName,
                 OrderDate = orderRequest.OrderDate,
-                // Status = OrderStatusDictionary.New,
-                Status = "New",
+                Status = OrderStatus.NewOrder,
                 OrderItems = orderRequest.OrderItems.Select(item => new OrderItem
                 {
                     ProductName = item.ProductName,

@@ -15,6 +15,7 @@ namespace OrderAPI.DataAccess
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<Order>().HasKey(o => o.OrderId);
+
             modelBuilder.Entity<OrderItem>().HasKey(oi => oi.OrderItemId);
 
             modelBuilder.Entity<Order>()

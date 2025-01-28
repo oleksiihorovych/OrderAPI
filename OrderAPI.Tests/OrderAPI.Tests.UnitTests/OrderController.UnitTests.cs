@@ -2,19 +2,17 @@
 using NUnit.Framework;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Linq;
 using OrderAPI.Controllers;
 using OrderAPI.DataAccess.Models;
 using OrderAPI.DataTransfer;
 using OrderAPI.DataAccess;
-using OrderAPI.DataTransfer.Extentions;
+using OrderAPI.Constants;
 
-namespace OrderAPI.Tests.UnitTests
+
+namespace OrderAPI.Tests
 {
-    public class OrderControllerUnitTestsTest
+    public class OrderControllerTests
     {
         private DbContextOptions<DbAccess> _options;
         private OrdersController _controller;
@@ -189,7 +187,7 @@ namespace OrderAPI.Tests.UnitTests
         public async Task UpdatePaymentStatus_ValidOrder_ReturnsOk_Cancelled()
         {
             // Arrange
-            var order = new Order { OrderNumber = 1, CustomerName = "Customer1", OrderDate = DateTime.Now, Status = "New", OrderItems = new List<OrderItem>() };
+            var order = new Order { OrderNumber = 1, CustomerName = "Customer1", OrderDate = DateTime.Now, Status = OrderStatus.NewOrder, OrderItems = new List<OrderItem>() };
             using (var context = new DbAccess(_options))
             {
                 await context.Orders.AddAsync(order);
@@ -205,7 +203,7 @@ namespace OrderAPI.Tests.UnitTests
                 // Assert
                 Assert.That(result, Is.InstanceOf<OkObjectResult>());
                 var okResult = result as OkObjectResult;
-                Assert.That(updatedOrder?.Status, Is.EqualTo("Cancalled"));
+                Assert.That(updatedOrder?.Status, Is.EqualTo("Cancelled"));
                 Assert.That(okResult?.StatusCode, Is.EqualTo(200));
             }
         }

@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using OrderAPI.DataAccess;
-
-namespace OrderAPI;
+// using OrderAPI.Services;
+// using OrderAPI.Services.Abstractions;
 
 public class Program
 {
@@ -26,6 +26,11 @@ public class Program
                 Description = "API for managing orders"
             });
         });
+
+        // // Payment services
+
+        // builder.Services.AddSingleton<IPaymentPublisher, PaymentPublisher>();
+        // builder.Services.AddHostedService<PaymentConsumer>();
 
         var app = builder.Build();
 
